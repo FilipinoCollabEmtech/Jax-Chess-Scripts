@@ -4,6 +4,7 @@ Roblox/Luau helper scripts for two chess experiences:
 
 - `RoChess.lua` — helper for **RoChess!** (place `130878180532794`)
 - `chessduels.lua` — helper for **Chess Duels** (place `89083628291452`)
+- `WordleHelper.lua` — Wordle solver UI using APIVerve Wordle Helper and oanor Wordle API
 
 ## Features
 
@@ -30,6 +31,14 @@ always reads from GitHub raw.
 `AutoExec/chessduels.luau` is a guarded loader that starts `chessduels.lua`
 when Real injects into a new Roblox session. It only acts in Chess Duels and
 skips if the script is already running.
+
+## Wordle Helper
+
+`WordleHelper.lua` takes green (`A1,E5`), yellow (`R`) and gray (`STLN`) clues,
+or oanor `guess:pattern` pairs, and returns ranked next guesses. Source can be
+`apiverve`, `oanor`, or `auto` (oanor first, APIVerve fallback). Keys are read
+from `WordleHelper/settings.json` in Real's workspace; never commit real keys.
+An example with placeholders is in `examples/wordlehelper-settings.json`.
 
 ## Settings
 

@@ -1,0 +1,4 @@
+# Local executor settings can contain API keys.
+WordleHelper/settings.json
+chessduels/settings.json
+RoChess/settings.json
