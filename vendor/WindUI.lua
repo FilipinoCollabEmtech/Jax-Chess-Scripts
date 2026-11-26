@@ -8887,6 +8887,7 @@ RecalculateCanvasSize()
 
 function as.Open(au)
 if not ap.Locked then
+ap.Opened=true
 ap.UIElements.Menu.Visible=true
 ap.UIElements.MenuCanvas.Visible=true
 ap.UIElements.MenuCanvas.Active=true
@@ -8895,14 +8896,6 @@ am(ap.UIElements.Menu,0.1,{
 Size=UDim2.new(1,0,1,0),
 ImageTransparency=0,
 },Enum.EasingStyle.Quart,Enum.EasingDirection.Out):Play()
-
-task.spawn(function()
-task.wait(0.1)
-if ap.Locked then
-return
-end
-ap.Opened=true
-end)
 
 UpdatePosition()
 end
@@ -8918,13 +8911,17 @@ ImageTransparency=1,
 
 task.spawn(function()
 task.wait(0.1)
+if not ap.Opened then
 ap.UIElements.Menu.Visible=false
+end
 end)
 
 task.spawn(function()
 task.wait(0.25)
+if not ap.Opened then
 ap.UIElements.MenuCanvas.Visible=false
 ap.UIElements.MenuCanvas.Active=false
+end
 end)
 end
 
@@ -8934,7 +8931,11 @@ ap.UIElements.Dropdown and ap.UIElements.Dropdown.MouseButton1Click
 or ap.DropdownFrame.UIElements.Main.MouseButton1Click
 ),
 function()
+if ap.Opened then
+as:Close()
+else
 as:Open()
+end
 end
 )
 
