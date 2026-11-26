@@ -326,41 +326,40 @@ local function main()
 
     Main:Button({ Title = "Refresh now", Desc = "Ask again for the current prompt", Callback = function() refresh(false) end })
 
-    local initGuard = true
-    Main:Toggle({
+    local function startLoop()
+        state.suggestToken = (state.suggestToken or 0) + 1
+        task.spawn(function()
+            local token = state.suggestToken
+            while state.suggestToken == token and state.autoSuggest do
+                task.wait(1)
+                if state.asking then continue end
+                local round = readRound()
+                if round and round.signature ~= state.lastSignature then
+                    state.asking = true
+                    refresh(false)
+                    state.asking = false
+                end
+            end
+        end)
+    end
+
+    local initUntil = os.clock() + 3
+    local toggle = Main:Toggle({
         Title = "Auto Suggest",
         Desc = "Read each new prompt and show 5 rare answers",
-        Value = state.autoSuggest,
+        Value = false,
         Callback = function(on)
-            -- WindUI invokes this during construction; ignore that synthetic event.
-            if initGuard then return end
+            -- WindUI fires a synthetic callback during construction; ignore that window.
+            if os.clock() < initUntil then return end
+            if on == state.autoSuggest then return end
             state.autoSuggest = on
             saveSettings()
             state.suggestToken = (state.suggestToken or 0) + 1
-            if not on then return end
-            task.spawn(function()
-                local token = state.suggestToken
-                while state.suggestToken == token and state.autoSuggest do
-                    task.wait(1)
-                    if state.asking then continue end
-                    local round = readRound()
-                    if round and round.signature ~= state.lastSignature then
-                        state.asking = true
-                        refresh(false)
-                        state.asking = false
-                    end
-                end
-            end)
+            if on then startLoop() end
         end,
     })
-    initGuard = false
-    if state.autoSuggest then
-        local toggle
-        for _, element in pairs(Main.Elements or {}) do
-            if type(element) == "table" and element.Title == "Auto Suggest" then toggle = element break end
-        end
-        if toggle and type(toggle.Callback) == "function" then pcall(function() toggle.Callback(true) end) end
-    end
+    pcall(function() toggle:Set(state.autoSuggest) end)
+    if state.autoSuggest then startLoop() end
 end
 
 main()
