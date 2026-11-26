@@ -514,7 +514,6 @@ local function main()
             Title = "RoChess Key",
             Note = "Paste a key.",
             SaveKey = true,
-            URL = KEY_COPY_URL,
             KeySystemCopy = KEY_COPY_URL,
             KeyValidator = WindUI.CreateKeyValidator(KEY_URL),
         },
