@@ -91,7 +91,7 @@ end
 
 loadSettings()
 
-local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/1b5e500/vendor/WindUI.lua"
+local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/6d0e0ca/vendor/WindUI.lua"
 local KEY_URL = "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOBgMdz0c72Y0qjq-4i66tTNURFk7Ae7rTi025IJ4VXnGMS/exec"
 local KEY_COPY_URL = "https://loot-link.com/s?GzjJ7ox2"
 
