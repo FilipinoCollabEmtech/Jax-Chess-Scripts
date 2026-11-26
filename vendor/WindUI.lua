@@ -3173,6 +3173,12 @@ end
 if ag.KeySystem.URL then
 ae("Get key","key",function()
 setclipboard(ag.KeySystem.URL)
+ag.WindUI:Notify{
+Title=ag.KeySystem.Title or ag.Title or"Key System",
+Content="Key copied!!",
+Image="key",
+Duration=4,
+}
 end,"Secondary",ax.Frame)
 end
 
