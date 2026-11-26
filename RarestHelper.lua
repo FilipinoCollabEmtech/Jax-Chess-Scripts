@@ -40,12 +40,11 @@ loadSettings()
 
 local API_URL = "https://ai-gateway.kilo.ai/api/v1/chat/completions"
 local SYSTEM_PROMPT = [[You are helping win a word game: the player must submit the LEAST KNOWN valid answer to a prompt. First think of 12 genuine answers that fit the prompt. Throw out every famous, obvious, common, or top-of-mind answer - if an average person would name it, it is disqualified. Keep only answers that dedicated fans or specialists know. From those, pick the 5 most obscure and order them least known first. "best" must be the very first word, the most obscure of all. JSON only: {"words":["a","b","c","d","e"],"best":"a"}]]
--- Several free gateway models spend their whole token budget on reasoning and return no content.
--- Particle answers with low reasoning effort; Baidu needs a larger budget; the routed model is a last resort.
+-- Three free models are raced per prompt; the first valid answer wins.
 local MODELS = {
     { id = "particle-ai/particle-1:free", maxTokens = 2000 },
+    { id = "nvidia/nemotron-3-ultra-550b-a55b:free", maxTokens = 2000 },
     { id = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", maxTokens = 2000 },
-    { id = "particle-ai/particle-1:free", maxTokens = 2000 },
 }
 
 local function parseCompletion(content)
@@ -96,59 +95,71 @@ local function parseCompletion(content)
     return words, best
 end
 
-local function askKilo(prompt)
-    local lastError = "No models tried"
-    for _, config in ipairs(MODELS) do
-        local model = config.id
-        local payload = {
-            model = model,
-            messages = {
-                { role = "system", content = SYSTEM_PROMPT },
-                { role = "user", content = "PROMPT: " .. prompt },
-            },
-            max_tokens = config.maxTokens,
-            temperature = 0.2,
-            stream = false,
-            reasoning = { effort = "low" },
-        }
-        local okEncode, body = pcall(function() return game:GetService("HttpService"):JSONEncode(payload) end)
-        if not okEncode or type(body) ~= "string" then
-            lastError = "Could not encode request"
-            continue
-        end
+local function askOne(config, prompt)
+    local model = config.id
+    local payload = {
+        model = model,
+        messages = {
+            { role = "system", content = SYSTEM_PROMPT },
+            { role = "user", content = "PROMPT: " .. prompt },
+        },
+        max_tokens = config.maxTokens,
+        temperature = 0.2,
+        stream = false,
+        reasoning = { effort = "low" },
+    }
+    local okEncode, body = pcall(function() return game:GetService("HttpService"):JSONEncode(payload) end)
+    if not okEncode or type(body) ~= "string" then return nil, nil, "Could not encode request" end
 
-        local okRequest, response = pcall(function()
-            return request({
-                Url = API_URL,
-                Method = "POST",
-                Headers = { ["Content-Type"] = "application/json" },
-                Body = body,
-            })
-        end)
-        if not okRequest then lastError = "Request failed: " .. tostring(response) continue end
-        if type(response) == "string" then lastError = "Request failed: " .. response:sub(1, 140) continue end
+    local okRequest, response = pcall(function()
+        return request({
+            Url = API_URL,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = body,
+        })
+    end)
+    if not okRequest then return nil, nil, "Request failed: " .. tostring(response) end
+    if type(response) == "string" then return nil, nil, "Request failed: " .. response:sub(1, 140) end
 
-        local status = response.StatusCode
-        if type(status) == "number" and (status < 200 or status >= 300) then
-            lastError = "HTTP " .. tostring(status) .. ": " .. tostring(response.Body):sub(1, 120)
-            continue
-        end
-        local data = response.Body
-        if type(data) == "string" then
-            local okDecode, decoded = pcall(function() return game:GetService("HttpService"):JSONDecode(data) end)
-            if okDecode then data = decoded end
-        end
-        local choice = type(data) == "table" and data.choices and data.choices[1]
-        local content = choice and choice.message and choice.message.content
-        if type(content) ~= "string" or content == "" then
-            lastError = "Empty completion from " .. model
-            continue
-        end
-        local words, best = parseCompletion(content)
-        if words then return words, best, nil end
-        lastError = "No words parsed from " .. model
+    local status = response.StatusCode
+    if type(status) == "number" and (status < 200 or status >= 300) then
+        return nil, nil, "HTTP " .. tostring(status) .. ": " .. tostring(response.Body):sub(1, 120)
     end
-    return nil, nil, lastError
+    local data = response.Body
+    if type(data) == "string" then
+        local okDecode, decoded = pcall(function() return game:GetService("HttpService"):JSONDecode(data) end)
+        if okDecode then data = decoded end
+    end
+    local choice = type(data) == "table" and data.choices and data.choices[1]
+    local content = choice and choice.message and choice.message.content
+    if type(content) ~= "string" or content == "" then
+        return nil, nil, "Empty completion from " .. model
+    end
+    local words, best = parseCompletion(content)
+    if words then return words, best, nil end
+    return nil, nil, "No words parsed from " .. model
+end
+
+local function askKiloAsync(prompt, onResult)
+    state.raceToken = (state.raceToken or 0) + 1
+    local token = state.raceToken
+    local settled = false
+    for _, config in ipairs(MODELS) do
+        task.spawn(function()
+            local words, best, err = askOne(config, prompt)
+            if settled or state.raceToken ~= token then return end
+            if words then
+                settled = true
+                pcall(onResult, words, best, nil, config.id)
+            end
+        end)
+    end
+    task.delay(45, function()
+        if settled or state.raceToken ~= token then return end
+        settled = true
+        pcall(onResult, nil, nil, "All models failed or timed out")
+    end)
 end
 
 local function readRound()
@@ -218,6 +229,7 @@ local function main()
     state.suggestToken = (state.suggestToken or 0) + 1
     state.lastSignature = nil
     state.asking = false
+    state.raceToken = (state.raceToken or 0) + 1
 
     for _, connection in ipairs(state.connections) do
         pcall(function() connection:Disconnect() end)
@@ -318,28 +330,32 @@ local function main()
         state.lastSignature = round.signature
         state.words = {}
         state.best = nil
+        state.asking = true
         for i = 1, 5 do pcall(function() rows[i]:SetDesc("asking...") end) end
         if not silent then
-            setPanel(round.question, "Asking Kilo free gateway..." .. (round.round and ("\n" .. round.round) or ""))
+            setPanel(round.question, "Asking 3 Kilo models..." .. (round.round and ("\n" .. round.round) or ""))
         end
-        local words, best, err = askKilo(round.question)
-        local current = readRound()
-        if not current or current.signature ~= round.signature then return end
-        if not words then
-            for i = 1, 5 do pcall(function() rows[i]:SetDesc("no suggestion") end) end
-            setPanel(round.question, "Failed: " .. tostring(err))
-            return
-        end
-        state.words = words
-        state.best = best
-        for i = 1, 5 do
-            local word = words[i]
-            pcall(function()
-                rows[i]:SetDesc(word and (word == best and (word .. "  <- least known") or word) or "waiting...")
-            end)
-        end
-        setPanel(round.question, string.format("Least known: %s\n\n%s\nClick a row to fill your answer.",
-            best, table.concat(words, "  |  ")) .. (round.round and ("\n" .. round.round) or ""))
+        askKiloAsync(round.question, function(words, best, err, model)
+            state.asking = false
+            state.winner = model
+            local current = readRound()
+            if not current or current.signature ~= round.signature then return end
+            if not words then
+                for i = 1, 5 do pcall(function() rows[i]:SetDesc("no suggestion") end) end
+                setPanel(round.question, "Failed: " .. tostring(err))
+                return
+            end
+            state.words = words
+            state.best = best
+            for i = 1, 5 do
+                local word = words[i]
+                pcall(function()
+                    rows[i]:SetDesc(word and (word == best and (word .. "  <- least known") or word) or "waiting...")
+                end)
+            end
+            setPanel(round.question, string.format("Least known: %s\n\n%s\nClick a row to fill your answer.",
+                best, table.concat(words, "  |  ")) .. (round.round and ("\n" .. round.round) or ""))
+        end)
     end
 
     Main:Button({ Title = "Refresh now", Desc = "Ask again for the current prompt", Callback = function() refresh(false) end })
@@ -353,9 +369,7 @@ local function main()
                 if state.asking then continue end
                 local round = readRound()
                 if round and round.signature ~= state.lastSignature then
-                    state.asking = true
                     refresh(false)
-                    state.asking = false
                 end
             end
         end)
