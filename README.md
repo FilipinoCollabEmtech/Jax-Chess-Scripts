@@ -56,10 +56,13 @@ are limited to 200 requests/hour per IP. Settings live in
 Google Apps Script web app (Extensions → Apps Script → Deploy → New deployment →
 Web app, execute as you, access "Anyone"), then paste the `/exec` URL into the
 gate. The service generates `Criex_` keys with six random letters, numbers or
-signs and stores them in Script Properties. The gate also accepts the literal
-key `ForTesters` and remembers an accepted key in `RoChess/settings.json`.
+signs and keeps one active key in Script Properties. Run `installTrigger()` once
+from the Apps Script editor to rotate that key every 12 hours; `?action=generate`
+returns the current key until rotation. The gate also accepts the literal key
+`ForTesters` and remembers an accepted key in `RoChess/settings.json`.
 
-Endpoints: `?action=generate`, `?action=validate&key=...`, `?action=list`.
+Endpoints: `?action=generate`, `?action=validate&key=...`, `?action=current`,
+`?action=rotate`.
 
 ## Vendored UI
 
