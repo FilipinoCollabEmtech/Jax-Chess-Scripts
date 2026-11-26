@@ -91,7 +91,7 @@ end
 
 loadSettings()
 
-local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/vendor/WindUI.lua?v=fcc3c6c"
+local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/vendor/WindUI.lua?v=e23fc42"
 local KEY_URL = "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOBgMdz0c72Y0qjq-4i66tTNURFk7Ae7rTi025IJ4VXnGMS/exec"
 
 local function loadWindUI()
