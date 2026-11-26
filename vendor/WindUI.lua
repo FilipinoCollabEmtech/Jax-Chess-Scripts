@@ -14592,6 +14592,10 @@ end
 end)
 
 function F.Destroy(G)
+-- DisconnectAll clears every signal in the shared module, not just this
+-- window's. A re-exec can build a new key prompt inside the 0.4s teardown
+-- delay, so only disconnect if no newer generation took over.
+local generation=av.WindUI and av.WindUI.__generation
 local screenGui=av.WindUI.ScreenGui
 local notificationGui=av.WindUI.NotificationGui
 local dropdownGui=av.WindUI.DropdownGui
@@ -14621,7 +14625,9 @@ if notificationGui then notificationGui:Destroy() end
 if dropdownGui then dropdownGui:Destroy() end
 if tooltipGui then tooltipGui:Destroy() end
 
+if av.WindUI and av.WindUI.__generation==generation then
 an.DisconnectAll()
+end
 
 return
 end)
@@ -15871,6 +15877,7 @@ local used=aa.Window~=nil or aa.__gate~=nil or not rootAlive
 
 if used then
 aa.__gate=nil
+aa.__generation=(aa.__generation or 0)+1
 
 if aa.Window then
 local previous=aa.Window
