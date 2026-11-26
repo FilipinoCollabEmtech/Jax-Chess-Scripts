@@ -16,17 +16,14 @@ play, and a puzzle Auto Next toggle.
 
 ## Teleport persistence
 
-Each script registers a reload chunk with `queueonteleport(source)`. On the next
-place teleport the chunk reads the newest copy of the script from Real's
-workspace and runs it, so edits survive a jump without re-injecting.
+Each script registers a reload chunk with `queueonteleport(source)`. The queued
+chunk fetches the newest script directly from this repository's raw GitHub URL,
+so it does not depend on a local file surviving the teleport. Aliases
+`queue_on_teleport` and `queueteleport` are used when available, and there is a
+`fluxus.queue_on_teleport(source)` fallback.
 
-Paths used by Real:
-
-- `Scripts/RoChess.lua`
-- `Scripts/chessduels.lua`
-
-Copy the matching file from this repo into Real's `scripts/MCP` folder (and the
-workspace `Scripts` folder) before relying on the reload chunk.
+Push changes to `main` before relying on a teleport, since the queued chunk
+always reads from GitHub raw.
 
 ## AutoExec (optional)
 
