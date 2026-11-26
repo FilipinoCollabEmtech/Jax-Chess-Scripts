@@ -1,14 +1,15 @@
 # Jax Chess Scripts
 
-Roblox/Luau helper scripts for two chess experiences:
+Roblox/Luau helper scripts for chess, Wordle and word-rarity experiences:
 
 - `RoChess.lua` — helper for **RoChess!** (place `130878180532794`)
 - `chessduels.lua` — helper for **Chess Duels** (place `89083628291452`)
-- `WordleHelper.lua` — Wordle solver UI using APIVerve Wordle Helper and oanor Wordle API
+- `WordleHelper.lua` — automatic Wordie board solver (APIVerve Wordle Helper)
+- `RarestHelper.lua` — prompt solver for **Guess the rarest word** (place `95246966728635`)
 
 ## Features
 
-Both scripts provide engine analysis through `stockfish.online`, a depth selector,
+The chess scripts provide engine analysis through `stockfish.online`, a depth selector,
 mate display, board arrows/markings, manual and automatic suggestions, and
 settings persistence through Real's filesystem.
 
@@ -34,11 +35,20 @@ skips if the script is already running.
 
 ## Wordle Helper
 
-`WordleHelper.lua` takes green (`A1,E5`), yellow (`R`) and gray (`STLN`) clues,
-or oanor `guess:pattern` pairs, and returns ranked next guesses. Source can be
-`apiverve`, `oanor`, or `auto` (oanor first, APIVerve fallback). Keys are read
-from `WordleHelper/settings.json` in Real's workspace; never commit real keys.
-An example with placeholders is in `examples/wordlehelper-settings.json`.
+`WordleHelper.lua` reads the Wordie board directly (`WordieTileState` on each
+tile), solves through the APIVerve Wordle Helper, and types the suggested word
+with the game's own keyboard handler. It handles fresh boards with no clues too.
+The APIVerve key is read from `WordleHelper/settings.json` in Real's workspace;
+never commit real keys. `examples/wordlehelper-settings.json` is a placeholder.
+
+## Rarest Helper
+
+`RarestHelper.lua` watches the current prompt in **Guess the rarest word** and,
+with Auto Suggest on, asks the free Kilo AI Gateway for five real answers ordered
+from least known to most known. The panel marks the least-known answer; clicking
+a row fills the game's answer box. No API key is needed — anonymous free models
+are limited to 200 requests/hour per IP. Settings live in
+`RarestHelper/settings.json` (see `examples/raresthelper-settings.json`).
 
 ## Settings
 
