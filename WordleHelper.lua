@@ -316,11 +316,14 @@ local function main()
     })
 
     local autoToggle
+    local initGuard = true
     autoToggle = Main:Toggle({
         Title = "Auto Solve",
         Desc = "Read the board, solve, and type the guess",
         Value = state.autoSolve,
         Callback = function(on)
+            -- WindUI invokes this during construction; ignore that synthetic event.
+            if initGuard then return end
             state.autoSolve = on
             saveSettings()
             state.autoToken = (state.autoToken or 0) + 1
@@ -344,6 +347,7 @@ local function main()
             end)
         end,
     })
+    initGuard = false
     if state.autoSolve then
         pcall(function() autoToggle.Callback(true) end)
     end
