@@ -243,12 +243,56 @@ local function main()
         end)
     end
 
+    local function pressKey(name)
+        local ok, handler = pcall(function()
+            local pg = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+            local hud = pg and pg:FindFirstChild("HUD")
+            local content = hud and hud:FindFirstChild("Content")
+            local gameFrame = content and content:FindFirstChild("Game")
+            local keyboards = gameFrame and gameFrame:FindFirstChild("Keyboards")
+            local layout = keyboards and keyboards:FindFirstChild("enKeyboard")
+            if not layout then return nil end
+            local button
+            for _, row in ipairs(layout:GetChildren()) do
+                button = row:FindFirstChild("Key" .. tostring(name):upper())
+                if button then break end
+            end
+            if not button then return nil end
+            for _, connection in ipairs(getconnections(button.Activated) or {}) do
+                local fn = connection.Function
+                local info = fn and debug.getinfo(fn)
+                if info and tostring(info.source):find("SharedInputLogic", 1, true) then
+                    return fn
+                end
+            end
+            return nil
+        end)
+        if ok and handler then return pcall(handler) end
+        return false
+    end
+
+    local function typeWord(word)
+        if state.typing then return false end
+        state.typing = true
+        for _ = 1, 5 do
+            pcall(pressKey, "BACKSPACE")
+            task.wait(0.05)
+        end
+        for letter in tostring(word):gmatch("%a") do
+            pcall(pressKey, letter:upper())
+            task.wait(0.08)
+        end
+        pcall(pressKey, "ENTER")
+        state.typing = false
+        return true
+    end
+
     local function runSolve(clues)
         setResult("Suggestion", "Thinking...")
         local answer, err = solveapiverde(clues.green, clues.yellow, clues.gray)
         if not answer then
             setResult("No result", tostring(err))
-            return
+            return nil
         end
         local words = {}
         for i, word in ipairs(answer.words) do
@@ -258,6 +302,7 @@ local function main()
         setResult("Suggestion", string.format("Best: %s\nMatches: %s\nPattern: %s\nGreen: %s | Yellow: %s | Gray: %s\n\n%s",
             answer.best, tostring(answer.count), answer.pattern,
             clues.green, clues.yellow, clues.gray, table.concat(words, "\n")))
+        return answer.best
     end
 
     Main:Input({
@@ -273,7 +318,7 @@ local function main()
     local autoToggle
     autoToggle = Main:Toggle({
         Title = "Auto Solve",
-        Desc = "Read the Wordie board and suggest the next word",
+        Desc = "Read the board, solve, and type the guess",
         Value = state.autoSolve,
         Callback = function(on)
             state.autoSolve = on
@@ -287,7 +332,11 @@ local function main()
                     local clues = readBoard()
                     if clues and clues.signature ~= state.lastBoardSignature then
                         state.lastBoardSignature = clues.signature
-                        runSolve(clues)
+                        local best = runSolve(clues)
+                        if best and os.clock() - (state.lastTypedAt or 0) > 6 then
+                            state.lastTypedAt = os.clock()
+                            typeWord(best)
+                        end
                     end
                 end
             end)
