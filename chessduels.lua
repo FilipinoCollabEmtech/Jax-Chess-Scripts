@@ -435,7 +435,7 @@ local function main()
     local Window = WindUI:CreateWindow({
         Title = "chessduels",
         Icon = "castle",
-        Author = "OpenCode",
+        Author = "By Criexter",
         Folder = "chessduels",
         Size = UDim2.fromOffset(460, 420),
         Theme = "Dark",

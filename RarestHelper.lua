@@ -291,7 +291,7 @@ local function main()
     local Window = WindUI:CreateWindow({
         Title = "Rarest Helper",
         Icon = "sparkles",
-        Author = "OpenCode",
+        Author = "By Criexter",
         Folder = "RarestHelper",
         Size = UDim2.fromOffset(460, 420),
         Theme = "Dark",

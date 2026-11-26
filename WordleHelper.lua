@@ -222,7 +222,7 @@ local function main()
     local Window = WindUI:CreateWindow({
         Title = "Wordle Helper",
         Icon = "grid",
-        Author = "OpenCode",
+        Author = "By Criexter",
         Folder = "WordleHelper",
         Size = UDim2.fromOffset(460, 360),
         Theme = "Dark",
