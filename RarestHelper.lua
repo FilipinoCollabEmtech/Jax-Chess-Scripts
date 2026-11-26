@@ -39,13 +39,14 @@ end
 loadSettings()
 
 local API_URL = "https://ai-gateway.kilo.ai/api/v1/chat/completions"
-local SYSTEM_PROMPT = [[You help a player in a word-rarity game. Given a short prompt, suggest five genuine, valid answers that fit it exactly. The goal is the answer the fewest people on earth would know: obscure, unusual, but still real and valid for the prompt. Never pick a famous or obvious answer. Order the five from least known to most known. Set "best" to the single least known answer that almost nobody would think of. Reply with strict JSON only, no markdown, with "best" equal to one of the five words: {"words":["answer1","answer2","answer3","answer4","answer5"],"best":"answer1"}]]
+local SYSTEM_PROMPT = [[You play a word-rarity game. The user gives a PROMPT. Suggest exactly five real answers that literally satisfy that prompt. Each answer MUST be a valid response to the prompt - do not substitute a different category. Make them obscure and little-known, never famous. Order from least known to most known. Set "best" to the single least known word, copied exactly from your five words. Reply with strict JSON only: {"words":["a","b","c","d","e"],"best":"..."}]]
 -- Several free gateway models spend their whole token budget on reasoning and return no content.
--- Try the ones that reliably answer, then fall back to the routed free model.
+-- Particle answers with low reasoning effort; Baidu needs a larger budget; the routed model is a last resort.
 local MODELS = {
-    "particle-ai/particle-1:free",
-    "baidu/ernie-5.5-flash-preview:free",
-    "kilo-auto/free",
+    { id = "particle-ai/particle-1:free", maxTokens = 2000 },
+    { id = "baidu/ernie-5.5-flash-preview:free", maxTokens = 4000 },
+    { id = "kilo-auto/free", maxTokens = 4000 },
+    { id = "particle-ai/particle-1:free", maxTokens = 2000 },
 }
 
 local function parseCompletion(content)
@@ -64,7 +65,12 @@ local function parseCompletion(content)
         for _, word in ipairs(parsed.words) do
             if type(word) == "string" then
                 word = word:gsub("^%s+", ""):gsub("%s+$", "")
-                if word ~= "" and #word <= 60 then words[#words + 1] = word end
+                local lower = word:lower()
+                if word ~= "" and #word <= 60
+                    and not lower:match("^answer%d+$") and not lower:match("^[a-e]$")
+                    and lower ~= "first" and lower ~= "word1" then
+                    words[#words + 1] = word
+                end
             end
             if #words == 5 then break end
         end
@@ -93,17 +99,18 @@ end
 
 local function askKilo(prompt)
     local lastError = "No models tried"
-    for _, model in ipairs(MODELS) do
+    for _, config in ipairs(MODELS) do
+        local model = config.id
         local payload = {
             model = model,
             messages = {
                 { role = "system", content = SYSTEM_PROMPT },
-                { role = "user", content = prompt },
+                { role = "user", content = "PROMPT: " .. prompt },
             },
-            max_tokens = 1200,
+            max_tokens = config.maxTokens,
             temperature = 0.2,
             stream = false,
-            reasoning = { effort = "none" },
+            reasoning = { effort = "low" },
         }
         local okEncode, body = pcall(function() return game:GetService("HttpService"):JSONEncode(payload) end)
         if not okEncode or type(body) ~= "string" then
