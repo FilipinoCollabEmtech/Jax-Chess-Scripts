@@ -12,7 +12,6 @@ if type(state) ~= "table" then
     genv.RoChessState = state
 end
 state.connections = state.connections or {}
-state.objects = state.objects or {}
 state.depth = state.depth or 12
 state.humanTiming = state.humanTiming or false
 state.autoSuggest = state.autoSuggest or false
@@ -92,37 +91,15 @@ end
 
 loadSettings()
 
-local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/vendor/WindUI.lua?v=1e46707"
+local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/vendor/WindUI.lua?v=fcc3c6c"
 local KEY_URL = "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOBgMdz0c72Y0qjq-4i66tTNURFk7Ae7rTi025IJ4VXnGMS/exec"
 
 local function loadWindUI()
-    local cached = state.windUI
-    if type(cached) == "table" and type(cached.CreateWindow) == "function" then
-        -- A re-exec keeps state in getgenv. Reuse the cached UI only if it has
-        -- never built a window; WindUI refuses a second one and leaves
-        -- aa.Window set, so a used module would make CreateWindow return nil.
-        local screen = cached.ScreenGui
-        local unused = cached.Window == nil
-        local mounted = typeof(screen) == "Instance"
-            and screen.Parent ~= nil
-            and screen:FindFirstChild("Window") ~= nil
-        if unused and mounted then
-            return cached
-        end
-        for _, field in ipairs({ "ScreenGui", "NotificationGui", "DropdownGui", "TooltipGui" }) do
-            local gui = cached[field]
-            if typeof(gui) == "Instance" then
-                pcall(function() gui:Destroy() end)
-            end
-        end
-        state.windUI = nil
-    end
     for attempt = 1, 3 do
         local ok, ui = pcall(function()
             return loadstring(game:HttpGet(WINDUI_URL))()
         end)
         if ok and type(ui) == "table" and type(ui.CreateWindow) == "function" then
-            state.windUI = ui
             return ui
         end
         task.wait(0.4)
@@ -133,12 +110,6 @@ end
 local function trackConnection(connection)
     if connection then
         state.connections[#state.connections + 1] = connection
-    end
-end
-
-local function trackObject(object)
-    if object then
-        state.objects[#state.objects + 1] = object
     end
 end
 
@@ -282,11 +253,6 @@ local function cleanup()
         pcall(function() connection:Disconnect() end)
     end
     state.connections = {}
-
-    for _, object in ipairs(state.objects) do
-        pcall(function() object:Destroy() end)
-    end
-    state.objects = {}
 
     local hosts = {}
     if typeof(gethui) == "function" then
@@ -546,9 +512,9 @@ local function main()
         keySystem = true,
         keyLink = KEY_URL,
         keyTitle = "RoChess Key",
-        keyNote = "Paste a Criex key. ForTesters also works.",
+        keyNote = "Paste a key.",
     })
-    trackObject(Window)
+    if not Window then return end
 
     local Main = Window:Tab({ Title = "Main", Icon = "home" })
     Main:Section({ Title = "Chess", Opened = true })
