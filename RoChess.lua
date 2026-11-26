@@ -275,7 +275,7 @@ local function cleanup()
 end
 
 -- Queued chunk: always load the newest script straight from GitHub raw.
-local QUEUED_SOURCE = [[pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/6f932d1/RoChess.lua"))() end)]]
+local QUEUED_SOURCE = [[pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/3200320/RoChess.lua"))() end)]]
 
 local function queueReload()
     if state.queuedFor == game.PlaceId and not state.queueConsumed then return end
