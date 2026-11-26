@@ -91,7 +91,7 @@ end
 
 loadSettings()
 
-local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/vendor/WindUI.lua?v=165923b"
+local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/vendor/WindUI.lua?v=2125800"
 local KEY_URL = "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOBgMdz0c72Y0qjq-4i66tTNURFk7Ae7rTi025IJ4VXnGMS/exec"
 local KEY_COPY_URL = "https://loot-link.com/s?GzjJ7ox2"
 
@@ -510,11 +510,14 @@ local function main()
         Size = UDim2.fromOffset(460, 420),
         Theme = "Dark",
         ToggleKey = Enum.KeyCode.RightControl,
-        keySystem = true,
-        keyLink = KEY_URL,
-        keySystemCopy = KEY_COPY_URL,
-        keyTitle = "RoChess Key",
-        keyNote = "Paste a key.",
+        KeySystem = {
+            Title = "RoChess Key",
+            Note = "Paste a key.",
+            SaveKey = true,
+            URL = KEY_COPY_URL,
+            KeySystemCopy = KEY_COPY_URL,
+            KeyValidator = WindUI.CreateKeyValidator(KEY_URL),
+        },
     })
     if not Window then return end
 
