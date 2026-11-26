@@ -15660,7 +15660,7 @@ end
 local h=(aA.Folder or"Temp").."/"..g..".key"
 
 if aA.KeySystem.KeyValidator then
-if aA.KeySystem.SaveKey and isfile(h)then
+if aA.KeySystem.SaveKey and type(isfile)=="function"and isfile(h)then
 local i=readfile(h)
 local l=aA.KeySystem.KeyValidator(i)
 
@@ -15831,25 +15831,13 @@ end
 return decoded.valid==true
 end
 
-function aa.CreateWindow(az,aA)
-local options=aA or az
-
-if type(options)=="table"and options.keySystem==true and type(options.KeySystem)~="table"then
-local link=tostring(options.keyLink or options.KeyLink or"")
-local canSave=type(writefile)=="function"and type(isfile)=="function"
-
-options.KeySystem={
-Title=options.keyTitle or((tostring(options.Title or"App")).." Key"),
-Note=options.keyNote,
-Thumbnail=options.keyThumbnail,
-KeySystemCopy=options.keySystemCopy or options.KeySystemCopy,
-SaveKey=(options.keySave~=false)and canSave,
-KeyValidator=function(key)
+function aa.CreateKeyValidator(link)
+return function(key)
 return __windUI_validateKey(link,key)
-end,
-}
+end
 end
 
+function aa.CreateWindow(az,aA)
 -- A re-exec loads this file again and gets the cached instance above, so this
 -- wrapper may run a second time on a module that already has a window. WindUI
 -- refuses a second window and leaves aa.Window set, which would make this call
