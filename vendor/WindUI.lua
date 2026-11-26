@@ -14,6 +14,16 @@
     License: MIT
 ]]
 
+-- Reuse an already loaded instance so re-execs do not stack GUIs. A stale
+-- instance is fine: CreateWindow rebuilds the root before building a window.
+do
+    local cache=(typeof(getgenv)=="function"and getgenv())or _G
+    local existing=cache.__WindUIInstance
+    if type(existing)=="table"and type(existing.CreateWindow)=="function"then
+        return existing
+    end
+end
+
 type ConfigType__DARKLUA_TYPE_a={
 Object:Instance,
 Camera:Instance?,
@@ -14492,6 +14502,13 @@ end
 end)
 
 function F.Destroy(G)
+local screenGui=av.WindUI.ScreenGui
+local notificationGui=av.WindUI.NotificationGui
+local dropdownGui=av.WindUI.DropdownGui
+local tooltipGui=av.WindUI.TooltipGui
+if av.WindUI.Window==G or av.WindUI.Window==aw then
+av.WindUI.Window=nil
+end
 task.spawn(function()
 if aw.OnDestroyCallback then
 task.spawn(function()
@@ -14507,10 +14524,12 @@ aw.Destroyed=true
 
 task.wait(0.4)
 
-av.WindUI.ScreenGui:Destroy()
-av.WindUI.NotificationGui:Destroy()
-av.WindUI.DropdownGui:Destroy()
-av.WindUI.TooltipGui:Destroy()
+-- Destroy the GUIs this window was built on. Reading WindUI.ScreenGui here
+-- would hit a root rebuilt by a newer window and take that one down too.
+if screenGui then screenGui:Destroy() end
+if notificationGui then notificationGui:Destroy() end
+if dropdownGui then dropdownGui:Destroy() end
+if tooltipGui then tooltipGui:Destroy() end
 
 an.DisconnectAll()
 
@@ -15311,6 +15330,7 @@ local av=protectgui or(syn and syn.protect_gui)or function()end
 
 local aw=gethui and gethui()or(al or ap:WaitForChild"PlayerGui")
 
+local function buildRoot()
 local ax=at("UIScale",{
 Scale=aa.UIScale,
 })
@@ -15364,6 +15384,9 @@ av(aa.ScreenGui)
 av(aa.NotificationGui)
 av(aa.DropdownGui)
 av(aa.TooltipGui)
+end
+
+buildRoot()
 
 as.Init(aa)
 
@@ -15556,6 +15579,9 @@ local g=f()
 if aA.KeySystem then
 b=false
 
+local gateToken={}
+aa.__gate=gateToken
+
 local function loadKeysystem()
 ar.new(aA,g,function(h)
 b=h
@@ -15572,6 +15598,11 @@ local l=aA.KeySystem.KeyValidator(i)
 if l then
 b=true
 else
+-- The generator rotates keys, so a cached key goes stale. Drop it or every
+-- later run re-validates the same dead key over HTTP before prompting.
+if type(delfile)=="function"then
+pcall(delfile,h)
+end
 loadKeysystem()
 end
 else
@@ -15622,9 +15653,34 @@ loadKeysystem()
 end
 end
 
+-- The prompt is the only way to set b. If it disappears without a valid key
+-- (Exit, or a newer run tearing the root down) this loop would otherwise spin
+-- forever and CreateWindow would never return.
+local sawPrompt=false
+local goneSince=nil
 repeat
 task.wait()
-until b
+local folder=aa.ScreenGui and aa.ScreenGui.Parent and aa.ScreenGui:FindFirstChild("KeySystem")
+if folder and #folder:GetChildren()>0 then
+sawPrompt=true
+goneSince=nil
+elseif sawPrompt then
+goneSince=goneSince or os.clock()
+-- Success clears the prompt first and calls back with true only after the
+-- close animation, so an empty prompt is not a cancel until it stays empty.
+if os.clock()-goneSince>3 then
+break
+end
+end
+until b or aa.__gate~=gateToken
+
+if aa.__gate==gateToken then
+aa.__gate=nil
+end
+
+if not b then
+return
+end
 end
 
 local h=aB(aA)
@@ -15724,7 +15780,39 @@ end,
 }
 end
 
+-- A re-exec loads this file again and gets the cached instance above, so this
+-- wrapper may run a second time on a module that already has a window. WindUI
+-- refuses a second window and leaves aa.Window set, which would make this call
+-- return nil with no error. Tear the old run down instead: stop any key prompt
+-- still waiting, destroy the window, then rebuild the root so the new window
+-- has fresh GUIs to live in.
+local root=aa.ScreenGui
+local rootAlive=typeof(root)=="Instance"and root.Parent~=nil
+local used=aa.Window~=nil or aa.__gate~=nil or not rootAlive
+
+if used then
+aa.__gate=nil
+
+if aa.Window then
+local previous=aa.Window
+aa.Window=nil
+pcall(function() previous:Destroy() end)
+end
+
+for _,field in ipairs({"ScreenGui","NotificationGui","DropdownGui","TooltipGui"}) do
+local old=aa[field]
+if typeof(old)=="Instance"then
+pcall(function() old:Destroy() end)
+end
+end
+
+buildRoot()
+end
+
 return __windUI_CreateWindow(az,aA)
 end
+
+local __windCache=(typeof(getgenv)=="function"and getgenv())or _G
+__windCache.__WindUIInstance=aa
 
 return aa
