@@ -43,8 +43,8 @@ local SYSTEM_PROMPT = [[You are helping win a word game: the player must submit 
 -- Several free gateway models spend their whole token budget on reasoning and return no content.
 -- Particle answers with low reasoning effort; Baidu needs a larger budget; the routed model is a last resort.
 local MODELS = {
+    { id = "particle-ai/particle-1:free", maxTokens = 2000 },
     { id = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", maxTokens = 2000 },
-    { id = "kilo-auto/free", maxTokens = 2000 },
     { id = "particle-ai/particle-1:free", maxTokens = 2000 },
 }
 
@@ -166,7 +166,11 @@ local function readRound()
             if child:IsA("TextLabel") then
                 local text = tostring(child.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
                 if text ~= "" then
-                    if text:find("ROUND", 1, true) then round = text else question = text end
+                    if text:match("^ROUND ") or text:match("^QUESTION ") then
+                        round = text
+                    elseif question == "" then
+                        question = text
+                    end
                 end
             end
         end
