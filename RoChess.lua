@@ -98,11 +98,22 @@ local KEY_URL = "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOB
 local function loadWindUI()
     local cached = state.windUI
     if type(cached) == "table" and type(cached.CreateWindow) == "function" then
-        -- A re-exec keeps state in getgenv; a cached UI whose ScreenGui was
-        -- destroyed would fail at CreateWindow, so verify it is still mounted.
+        -- A re-exec keeps state in getgenv. Reuse the cached UI only if it has
+        -- never built a window; WindUI refuses a second one and leaves
+        -- aa.Window set, so a used module would make CreateWindow return nil.
         local screen = cached.ScreenGui
-        if typeof(screen) == "Instance" and screen.Parent ~= nil and screen:FindFirstChild("Window") then
+        local unused = cached.Window == nil
+        local mounted = typeof(screen) == "Instance"
+            and screen.Parent ~= nil
+            and screen:FindFirstChild("Window") ~= nil
+        if unused and mounted then
             return cached
+        end
+        for _, field in ipairs({ "ScreenGui", "NotificationGui", "DropdownGui", "TooltipGui" }) do
+            local gui = cached[field]
+            if typeof(gui) == "Instance" then
+                pcall(function() gui:Destroy() end)
+            end
         end
         state.windUI = nil
     end
