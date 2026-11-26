@@ -123,7 +123,7 @@ local function readBoard()
             end
         end
 
-        if #greens == 0 and #yellows == 0 and #grays == 0 then return nil end
+        -- An empty board is a fresh round: solve with no constraints to pick an opener.
         return {
             green = dedupe(greens),
             yellow = dedupe(yellows),
