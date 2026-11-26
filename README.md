@@ -50,6 +50,24 @@ a row fills the game's answer box. No API key is needed — anonymous free model
 are limited to 200 requests/hour per IP. Settings live in
 `RarestHelper/settings.json` (see `examples/raresthelper-settings.json`).
 
+## RoChess key gate
+
+`RoChess.lua` starts behind a key gate. Deploy `google-apps-script/Code.gs` as a
+Google Apps Script web app (Extensions → Apps Script → Deploy → New deployment →
+Web app, execute as you, access "Anyone"), then paste the `/exec` URL into the
+gate. The service generates `Criex_` keys with six random letters, numbers or
+signs and stores them in Script Properties. The gate also accepts the literal
+key `ForTesters` and remembers an accepted key in `RoChess/settings.json`.
+
+Endpoints: `?action=generate`, `?action=validate&key=...`, `?action=list`.
+
+## Vendored UI
+
+`vendor/WindUI.lua` is a pinned copy of WindUI v1.6.65 (MIT — see
+`vendor/WindUI-LICENSE.txt`). All four helpers load it from this repository's
+raw URL instead of the upstream release, so it stays available and updates are
+controlled here.
+
 ## Settings
 
 `examples/chessduels-settings.json` shows the persisted settings format. The

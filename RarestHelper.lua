@@ -269,7 +269,7 @@ local function main()
     local WindUI
     for attempt = 1, 3 do
         local ok, ui = pcall(function()
-            return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+            return loadstring(game:HttpGet("https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/vendor/WindUI.lua"))()
         end)
         if ok and type(ui) == "table" and type(ui.CreateWindow) == "function" then WindUI = ui break end
         task.wait(0.4)
