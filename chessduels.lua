@@ -322,12 +322,13 @@ local QUEUED_SOURCE = table.concat({
     "g.chessduelsState = g.chessduelsState or {}",
     "g.chessduelsState.queueConsumed = true",
     "local path = isfile('Scripts/chessduels.lua') and 'Scripts/chessduels.lua' or 'chessduels.lua'",
-    "if isfile(path) then",
-    "    local ok, src = pcall(readfile, path)",
-    "    if ok and type(src) == 'string' and #src > 0 then",
-    "        local run, err = loadstring(src)",
-    "        if run then pcall(run) else warn(err) end",
-    "    end",
+    "local url = 'https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/chessduels.lua'",
+    "local src = nil",
+    "if isfile(path) then local ok, body = pcall(readfile, path) if ok then src = body end end",
+    "if type(src) ~= 'string' or #src == 0 then local ok, body = pcall(function() return game:HttpGet(url) end) if ok then src = body end end",
+    "if type(src) == 'string' and #src > 0 then",
+    "    local run, err = loadstring(src)",
+    "    if run then pcall(run) else warn(err) end",
     "end",
 }, "\n")
 
@@ -340,15 +341,18 @@ local function queueReload()
     elseif typeof(clearqueueteleport) == "function" then
         pcall(clearqueueteleport)
     end
-    local queue = typeof(queue_on_teleport) == "function" and queue_on_teleport
-        or typeof(queueonteleport) == "function" and queueonteleport
+    local queue = typeof(queueonteleport) == "function" and queueonteleport
+        or typeof(queue_on_teleport) == "function" and queue_on_teleport
+        or typeof(queueteleport) == "function" and queueteleport
         or typeof(queue_on_tp) == "function" and queue_on_tp
         or typeof(queueontp) == "function" and queueontp
     if not queue then return end
-    local ok = pcall(queue, QUEUED_SOURCE)
+    local ok, err = pcall(queue, QUEUED_SOURCE)
     if ok then
         state.queuedFor = game.PlaceId
         state.queueConsumed = false
+    else
+        warn("[chessduels] queueonteleport failed: " .. tostring(err))
     end
 end
 
@@ -422,8 +426,9 @@ local function main()
             if typeof(clearqueueonteleport) == "function" then
                 pcall(clearqueueonteleport)
             end
-            local queue = typeof(queue_on_teleport) == "function" and queue_on_teleport
-                or typeof(queueonteleport) == "function" and queueonteleport
+            local queue = typeof(queueonteleport) == "function" and queueonteleport
+                or typeof(queue_on_teleport) == "function" and queue_on_teleport
+                or typeof(queueteleport) == "function" and queueteleport
                 or typeof(queue_on_tp) == "function" and queue_on_tp
                 or typeof(queueontp) == "function" and queueontp
             if queue then pcall(queue, QUEUED_SOURCE) end
