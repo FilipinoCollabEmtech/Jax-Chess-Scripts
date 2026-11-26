@@ -283,7 +283,7 @@ local function main()
         Folder = "RarestHelper",
         Size = UDim2.fromOffset(460, 420),
         Theme = "Dark",
-        ToggleKey = Enum.KeyCode.RightShift,
+        ToggleKey = Enum.KeyCode.RightControl,
     })
     table.insert(state.objects, Window)
     task.spawn(function()
