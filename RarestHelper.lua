@@ -312,11 +312,15 @@ local function main()
             return
         end
         state.lastSignature = round.signature
+        state.words = {}
+        state.best = nil
+        for i = 1, 5 do pcall(function() rows[i]:SetDesc("asking...") end) end
         if not silent then
             setPanel(round.question, "Asking Kilo free gateway..." .. (round.round and ("\n" .. round.round) or ""))
         end
         local words, best, err = askKilo(round.question)
         if not words then
+            for i = 1, 5 do pcall(function() rows[i]:SetDesc("no suggestion") end) end
             setPanel(round.question, "Failed: " .. tostring(err))
             return
         end
