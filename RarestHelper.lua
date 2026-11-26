@@ -39,7 +39,7 @@ end
 loadSettings()
 
 local API_URL = "https://ai-gateway.kilo.ai/api/v1/chat/completions"
-local SYSTEM_PROMPT = [[You play a word game. The user gives a PROMPT. Reply with five REAL examples that literally answer that prompt, ordered from least known to most known. They must be actual members of the category asked for, not merely related words. Never invent words. "best" must be one of your five words: the least known one. JSON only, no markdown. Example - PROMPT: Name a color -> {"words":["glaucous","fulvous","chartreuse","cerulean","taupe"],"best":"glaucous"}]]
+local SYSTEM_PROMPT = [[You are helping win a word game: the player must submit the LEAST KNOWN valid answer to a prompt. First think of 12 genuine answers that fit the prompt. Throw out every famous, obvious, common, or top-of-mind answer - if an average person would name it, it is disqualified. Keep only answers that dedicated fans or specialists know. From those, pick the 5 most obscure and order them least known first. "best" must be the very first word, the most obscure of all. JSON only: {"words":["a","b","c","d","e"],"best":"a"}]]
 -- Several free gateway models spend their whole token budget on reasoning and return no content.
 -- Particle answers with low reasoning effort; Baidu needs a larger budget; the routed model is a last resort.
 local MODELS = {
