@@ -3182,14 +3182,6 @@ Duration=4,
 end,"Secondary",ax.Frame)
 end
 
--- KeySystemCopy: extra "Copy link" button on the key screen. Same clipboard
--- action as URL, but supplied as its own field so URL can keep opening a page.
-if type(ag.KeySystem.KeySystemCopy)=="string"and ag.KeySystem.KeySystemCopy~=""then
-ae("Copy link","copy",function()
-setclipboard(ag.KeySystem.KeySystemCopy)
-end,"Secondary",ax.Frame)
-end
-
 if ag.KeySystem.API then
 
 
