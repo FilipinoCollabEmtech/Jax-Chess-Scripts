@@ -12281,12 +12281,24 @@ function ao.OnChange(ap,aq)
 ao.OnChangeFunc=aq
 end
 
-local function tabTextLabel(tab)
+local function tabMain(tab)
 local main=tab and tab.UIElements and tab.UIElements.Main
-if typeof(main)~="Instance"then return nil end
+if typeof(main)=="Instance"then return main end
+return nil
+end
+
+local function tabTextLabel(tab)
+local main=tabMain(tab)
+if not main then return nil end
 local frame=main:FindFirstChild("Frame")
 if typeof(frame)~="Instance"then return nil end
 return frame:FindFirstChild("TextLabel")
+end
+
+local function tabIconImage(tab)
+local icon=tab and tab.UIElements and tab.UIElements.Icon
+if typeof(icon)~="Instance"then return nil end
+return icon:FindFirstChild("ImageLabel")
 end
 
 function ao.SelectTab(ap,aq)
@@ -12295,11 +12307,14 @@ ao.SelectedTab=aq
 
 for ar,as in next,ao.Tabs do
 if not as.Locked then
-ak.SetThemeTag(as.UIElements.Main,{
+local main=tabMain(as)
+if main then
+ak.SetThemeTag(main,{
 ImageTransparency="TabBorderTransparency",
 },0.15)
-if as.Border and typeof(as.UIElements.Main)=="Instance"then
-local outline=as.UIElements.Main:FindFirstChild("Outline")
+end
+if as.Border and main then
+local outline=main:FindFirstChild("Outline")
 if outline then
 ak.SetThemeTag(outline,{
 ImageTransparency="TabBorderTransparency",
@@ -12312,21 +12327,27 @@ ak.SetThemeTag(label,{
 TextTransparency="TabTextTransparency",
 },0.15)
 end
-if as.UIElements.Icon and not as.IconColor then
-ak.SetThemeTag(as.UIElements.Icon.ImageLabel,{
+if not as.IconColor then
+local iconImage=tabIconImage(as)
+if iconImage then
+ak.SetThemeTag(iconImage,{
 ImageTransparency="TabIconTransparency",
 },0.15)
+end
 end
 as.Selected=false
 end
 end
-ak.SetThemeTag(ao.Tabs[aq].UIElements.Main,{
+local activeTab=ao.Tabs[aq]
+local activeMain=tabMain(activeTab)
+if activeMain then
+ak.SetThemeTag(activeMain,{
 ImageColor3="TabBackgroundActive",
 ImageTransparency="TabBackgroundActiveTransparency",
 },0.15)
-local activeTab=ao.Tabs[aq]
-if activeTab.Border and typeof(activeTab.UIElements.Main)=="Instance"then
-local outline=activeTab.UIElements.Main:FindFirstChild("Outline")
+end
+if activeTab.Border and activeMain then
+local outline=activeMain:FindFirstChild("Outline")
 if outline then
 ak.SetThemeTag(outline,{
 ImageTransparency="TabBorderTransparencyActive",
@@ -12339,10 +12360,13 @@ ak.SetThemeTag(activeLabel,{
 TextTransparency="TabTextTransparencyActive",
 },0.15)
 end
-if ao.Tabs[aq].UIElements.Icon and not ao.Tabs[aq].IconColor then
-ak.SetThemeTag(ao.Tabs[aq].UIElements.Icon.ImageLabel,{
+if not activeTab.IconColor then
+local iconImage=tabIconImage(activeTab)
+if iconImage then
+ak.SetThemeTag(iconImage,{
 ImageTransparency="TabIconTransparencyActive",
 },0.15)
+end
 end
 ao.Tabs[aq].Selected=true
 
