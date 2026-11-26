@@ -217,6 +217,7 @@ local function main()
     local myToken = state.uiToken
     state.suggestToken = (state.suggestToken or 0) + 1
     state.lastSignature = nil
+    state.asking = false
 
     for _, connection in ipairs(state.connections) do
         pcall(function() connection:Disconnect() end)
@@ -322,6 +323,8 @@ local function main()
             setPanel(round.question, "Asking Kilo free gateway..." .. (round.round and ("\n" .. round.round) or ""))
         end
         local words, best, err = askKilo(round.question)
+        local current = readRound()
+        if not current or current.signature ~= round.signature then return end
         if not words then
             for i = 1, 5 do pcall(function() rows[i]:SetDesc("no suggestion") end) end
             setPanel(round.question, "Failed: " .. tostring(err))
