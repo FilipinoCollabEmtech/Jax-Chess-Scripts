@@ -39,7 +39,7 @@ end
 loadSettings()
 
 local API_URL = "https://ai-gateway.kilo.ai/api/v1/chat/completions"
-local SYSTEM_PROMPT = [[You help a player in a word-rarity game. Given a short prompt, suggest five genuine, valid answers that fit it exactly. Prefer obscure but real answers, not famous ones. Order them from rarest to least rare. Reply with strict JSON only, no markdown, with the exact key "best" set to one of the five words: {"words":["answer1","answer2","answer3","answer4","answer5"],"best":"answer1"}]]
+local SYSTEM_PROMPT = [[You help a player in a word-rarity game. Given a short prompt, suggest five genuine, valid answers that fit it exactly. The goal is the answer the fewest people on earth would know: obscure, unusual, but still real and valid for the prompt. Never pick a famous or obvious answer. Order the five from least known to most known. Set "best" to the single least known answer that almost nobody would think of. Reply with strict JSON only, no markdown, with "best" equal to one of the five words: {"words":["answer1","answer2","answer3","answer4","answer5"],"best":"answer1"}]]
 -- Several free gateway models spend their whole token budget on reasoning and return no content.
 -- Try the ones that reliably answer, then fall back to the routed free model.
 local MODELS = {
@@ -314,13 +314,14 @@ local function main()
             return
         end
         state.words = words
+        state.best = best
         for i = 1, 5 do
             local word = words[i]
             pcall(function()
-                rows[i]:SetDesc(word and ((i == 1 or word == best) and (word .. "  <- rarest") or word) or "waiting...")
+                rows[i]:SetDesc(word and (word == best and (word .. "  <- least known") or word) or "waiting...")
             end)
         end
-        setPanel(round.question, string.format("Rarest: %s\n\n%s\nClick a row to fill your answer.",
+        setPanel(round.question, string.format("Least known: %s\n\n%s\nClick a row to fill your answer.",
             best, table.concat(words, "  |  ")) .. (round.round and ("\n" .. round.round) or ""))
     end
 
