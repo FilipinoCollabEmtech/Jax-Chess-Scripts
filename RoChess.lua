@@ -91,7 +91,7 @@ end
 
 loadSettings()
 
-local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/d21a0de/vendor/WindUI.lua"
+local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/9b7d95a/vendor/WindUI.lua"
 local KEY_URL = "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOBgMdz0c72Y0qjq-4i66tTNURFk7Ae7rTi025IJ4VXnGMS/exec"
 local KEY_COPY_URL = "https://loot-link.com/s?GzjJ7ox2"
 
@@ -275,7 +275,7 @@ local function cleanup()
 end
 
 -- Queued chunk: always load the newest script straight from GitHub raw.
-local QUEUED_SOURCE = [[pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/9535fbc/RoChess.lua"))() end)]]
+local QUEUED_SOURCE = [[pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/6f932d1/RoChess.lua"))() end)]]
 
 local function queueReload()
     if state.queuedFor == game.PlaceId and not state.queueConsumed then return end
