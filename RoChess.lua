@@ -96,8 +96,15 @@ local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-C
 local KEY_URL = "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOBgMdz0c72Y0qjq-4i66tTNURFk7Ae7rTi025IJ4VXnGMS/exec"
 
 local function loadWindUI()
-    if type(state.windUI) == "table" and type(state.windUI.CreateWindow) == "function" then
-        return state.windUI
+    local cached = state.windUI
+    if type(cached) == "table" and type(cached.CreateWindow) == "function" then
+        -- A re-exec keeps state in getgenv; a cached UI whose ScreenGui was
+        -- destroyed would fail at CreateWindow, so verify it is still mounted.
+        local screen = cached.ScreenGui
+        if typeof(screen) == "Instance" and screen.Parent ~= nil and screen:FindFirstChild("Window") then
+            return cached
+        end
+        state.windUI = nil
     end
     for attempt = 1, 3 do
         local ok, ui = pcall(function()
