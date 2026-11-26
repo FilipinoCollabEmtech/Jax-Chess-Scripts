@@ -3385,7 +3385,15 @@ end
 
 local function handleSuccess(aA)
 al:Close()()
-writefile((ag.Folder or"Temp").."/"..ah..".key",tostring(aA))
+-- Executors without a filesystem still need the callback to fire; an unguarded
+-- writefile here would abort the function and leave the window blocked forever.
+if type(writefile)=="function"then
+local ok=pcall(writefile,(ag.Folder or"Temp").."/"..ah..".key",tostring(aA))
+if not ok and type(makefolder)=="function"then
+pcall(makefolder,ag.Folder or"Temp")
+pcall(writefile,(ag.Folder or"Temp").."/"..ah..".key",tostring(aA))
+end
+end
 task.wait(0.4)
 ai(true)
 end
@@ -15641,6 +15649,82 @@ end
 
 
 return h
+end
+
+
+--[[ Criex key gate -----------------------------------------------------------
+     WindUI:CreateWindow({ keySystem = true, keyLink = "https://.../exec" })
+     shows the key prompt before the window is built. keyLink is the generator
+     web app URL; submitted keys go through ?action=validate and ForTesters
+     always passes. An accepted key is cached per user and re-checked on later
+     runs, so the prompt appears once.
+---------------------------------------------------------------------------- ]]
+local __windUI_CreateWindow=aa.CreateWindow
+
+local function __windUI_validateKey(link,key)
+key=tostring(key or"")
+
+if key==""then
+return false
+end
+
+if key=="ForTesters"then
+return true
+end
+
+if link==""then
+return false
+end
+
+local separator=link:find("?",1,true)and"&"or"?"
+local url=link..separator.."action=validate&key="..game:GetService("HttpService"):UrlEncode(key)
+
+local ok,body=pcall(function()
+if type(request)=="function"then
+local response=request({Url=url,Method="GET"})
+if type(response)=="table"then
+return response.Body or response.body
+end
+return nil
+end
+return game:HttpGet(url)
+end)
+
+if not ok or type(body)~="string"then
+return false
+end
+
+local decoded
+local okJson=pcall(function()
+decoded=game:GetService("HttpService"):JSONDecode(body)
+end)
+
+if not okJson or type(decoded)~="table"then
+return false
+end
+
+return decoded.valid==true
+end
+
+function aa.CreateWindow(az,aA)
+local options=aA or az
+
+if type(options)=="table"and options.keySystem==true and type(options.KeySystem)~="table"then
+local link=tostring(options.keyLink or options.KeyLink or"")
+local canSave=type(writefile)=="function"and type(isfile)=="function"
+
+options.KeySystem={
+Title=options.keyTitle or((tostring(options.Title or"App")).." Key"),
+Note=options.keyNote,
+Thumbnail=options.keyThumbnail,
+SaveKey=(options.keySave~=false)and canSave,
+KeyValidator=function(key)
+return __windUI_validateKey(link,key)
+end,
+}
+end
+
+return __windUI_CreateWindow(az,aA)
 end
 
 return aa

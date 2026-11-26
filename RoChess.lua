@@ -26,9 +26,6 @@ state.playMode = state.playMode or "Bot"
 state.modeAutoPlay = state.modeAutoPlay or { Bot = true, Online = true }
 state.modeAutoReplay = state.modeAutoReplay or { Bot = false, Online = false }
 state.puzzleAutoNext = state.puzzleAutoNext or false
-state.key = state.key or ""
-state.keyUrl = state.keyUrl or "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOBgMdz0c72Y0qjq-4i66tTNURFk7Ae7rTi025IJ4VXnGMS/exec"
-state.keyAccepted = state.keyAccepted or false
 
 -- First two moves played locally, no API round trip.
 -- White: Queen's Gambit. Black: QGD/Slav/QGA responses after 1.d4 d5 2.c4.
@@ -56,9 +53,6 @@ local function loadSettings()
     if type(data.autoSuggest) == "boolean" then state.autoSuggest = data.autoSuggest end
     if type(data.autoPlay) == "boolean" then state.autoPlay = data.autoPlay end
     if type(data.puzzleAutoNext) == "boolean" then state.puzzleAutoNext = data.puzzleAutoNext end
-    if type(data.key) == "string" then state.key = data.key end
-    if type(data.keyUrl) == "string" then state.keyUrl = data.keyUrl end
-    if type(data.keyAccepted) == "boolean" then state.keyAccepted = data.keyAccepted end
     if type(data.botId) == "string" then state.botId = data.botId end
     if type(data.botColor) == "string" then state.botColor = data.botColor end
     if type(data.tc) == "string" then state.tc = data.tc end
@@ -84,9 +78,6 @@ local function saveSettings()
             autoSuggest = state.autoSuggest,
             autoPlay = state.autoPlay,
             puzzleAutoNext = state.puzzleAutoNext,
-            key = state.key,
-            keyUrl = state.keyUrl,
-            keyAccepted = state.keyAccepted,
             botId = state.botId,
             botColor = state.botColor,
             tc = state.tc,
@@ -102,6 +93,7 @@ end
 loadSettings()
 
 local WINDUI_URL = "https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/vendor/WindUI.lua"
+local KEY_URL = "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOBgMdz0c72Y0qjq-4i66tTNURFk7Ae7rTi025IJ4VXnGMS/exec"
 
 local function loadWindUI()
     if type(state.windUI) == "table" and type(state.windUI.CreateWindow) == "function" then
@@ -118,32 +110,6 @@ local function loadWindUI()
         task.wait(0.4)
     end
     return nil
-end
-
-local function checkKey(key, url)
-    if type(key) ~= "string" or key == "" then return false, "Enter a key." end
-    if key == "ForTesters" then return true, nil end
-    local base = tostring(url or state.keyUrl or "")
-    if base == "" then return false, "Set the Apps Script URL." end
-    local separator = base:find("?", 1, true) and "&" or "?"
-    local endpoint = base .. separator .. "action=validate&key="
-        .. game:GetService("HttpService"):UrlEncode(key)
-    local ok, response = pcall(function()
-        return request({ Url = endpoint, Method = "GET" })
-    end)
-    if not ok then return false, "Request failed: " .. tostring(response) end
-    if type(response) == "string" then return false, "Bad response from key service." end
-    local status = response.StatusCode
-    if type(status) == "number" and (status < 200 or status >= 300) then
-        return false, "HTTP " .. tostring(status)
-    end
-    local data = response.Body
-    if type(data) == "string" then
-        local okJson, decoded = pcall(function() return game:GetService("HttpService"):JSONDecode(data) end)
-        if okJson then data = decoded end
-    end
-    if type(data) ~= "table" then return false, "Invalid key service response." end
-    return data.valid == true, nil
 end
 
 local function trackConnection(connection)
@@ -330,7 +296,6 @@ local function queueReload()
     if state.queuedFor == game.PlaceId and not state.queueConsumed then return end
     local queue = typeof(queueonteleport) == "function" and queueonteleport
         or typeof(queue_on_teleport) == "function" and queue_on_teleport
-        or typeof(queueteleport) == "function" and queueteleport
         or typeof(queue_on_tp) == "function" and queue_on_tp
         or typeof(queueontp) == "function" and queueontp
     local ok, err
@@ -560,6 +525,10 @@ local function main()
         Size = UDim2.fromOffset(460, 420),
         Theme = "Dark",
         ToggleKey = Enum.KeyCode.RightControl,
+        keySystem = true,
+        keyLink = KEY_URL,
+        keyTitle = "RoChess Key",
+        keyNote = "Paste a Criex key. ForTesters also works.",
     })
     trackObject(Window)
 
@@ -1223,70 +1192,4 @@ local function main()
     end
 end
 
-local function showKeyGate()
-    cleanup()
-    queueReload()
-    local WindUI = loadWindUI()
-    if not WindUI then
-        warn("[RoChess] vendored WindUI failed to load after 3 attempts")
-        return
-    end
-
-    local gate = WindUI:CreateWindow({
-        Title = "RoChess Key",
-        Icon = "key-round",
-        Author = "OpenCode",
-        Folder = "RoChessKey",
-        Size = UDim2.fromOffset(460, 300),
-        Theme = "Dark",
-        ToggleKey = Enum.KeyCode.RightControl,
-    })
-    trackObject(gate)
-    local tab = gate:Tab({ Title = "Access", Icon = "lock" })
-    local status = tab:Paragraph({
-        Title = "Key required",
-        Desc = "Enter a Criex key or ForTesters, and the URL of your deployed Apps Script.",
-    })
-    local function setStatus(desc)
-        pcall(function() status:SetDesc(desc) end)
-    end
-
-    local keyInput = tab:Input({
-        Title = "Key",
-        Placeholder = "Criex_XXXXXX or ForTesters",
-        Value = state.key,
-        Callback = function(text) state.key = text saveSettings() end,
-    })
-    local urlInput = tab:Input({
-        Title = "Apps Script URL",
-        Placeholder = "https://script.google.com/macros/s/.../exec",
-        Value = state.keyUrl,
-        Callback = function(text) state.keyUrl = text saveSettings() end,
-    })
-
-    tab:Button({
-        Title = "Unlock",
-        Desc = "Validate the key with the Apps Script endpoint",
-        Callback = function()
-            state.key = keyInput.Value or state.key
-            state.keyUrl = urlInput.Value or state.keyUrl
-            saveSettings()
-            setStatus("Checking key...")
-            local valid, err = checkKey(state.key, state.keyUrl)
-            if not valid then
-                setStatus("Invalid key: " .. tostring(err))
-                return
-            end
-            state.keyAccepted = true
-            saveSettings()
-            pcall(function() gate:Destroy() end)
-            task.spawn(main)
-        end,
-    })
-end
-
-if state.keyAccepted then
-    main()
-else
-    showKeyGate()
-end
+main()
