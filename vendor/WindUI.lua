@@ -3393,7 +3393,72 @@ aB=not aB
 end)
 end
 
+local shakeToken=0
+
+local function flashInvalidKey()
+-- an holds the submitted key text; av is the frame module n built around the
+-- TextBox. Its child Frame is the rounded field background: tint that, shake av.
+local root=av
+if typeof(root)~="Instance"or not root.Parent then return end
+
+local field
+for _,d in ipairs(root:GetDescendants()) do
+if d:IsA("TextBox")then
+field=d
+break
+end
+end
+if not field or not field.Parent then return end
+local tint=field.Parent
+
+local baseColor=tint.ImageColor3
+local baseTransparency=tint.ImageTransparency
+local basePosition=root.Position
+local token=shakeToken+1
+shakeToken=token
+
+pcall(function()
+tint.ImageColor3=Color3.fromRGB(255,70,70)
+tint.ImageTransparency=0.3
+end)
+
+for step=1,6 do
+if shakeToken~=token or not root.Parent then return end
+pcall(function()
+root.Position=basePosition+UDim2.fromOffset(step%2==0 and 8 or-8,0)
+end)
+task.wait(0.045)
+end
+
+if shakeToken==token and root.Parent then
+pcall(function()
+root.Position=basePosition
+tint.ImageColor3=baseColor
+tint.ImageTransparency=baseTransparency
+end)
+end
+end
+
+local function rejectKey(reason)
+flashInvalidKey()
+ag.WindUI:Notify{
+Title="Key System. Error",
+Content=reason or"Invalid key.",
+Icon="triangle-alert",
+}
+end
+
+local function notifyAccepted()
+ag.WindUI:Notify{
+Title=ag.KeySystem.Title or ag.Title or"Key System",
+Content="Key accepted.",
+Image="key",
+Duration=4,
+}
+end
+
 local function handleSuccess(aA)
+notifyAccepted()
 al:Close()()
 -- Executors without a filesystem still need the callback to fire; an unguarded
 -- writefile here would abort the function and leave the window blocked forever.
@@ -3419,16 +3484,13 @@ if b then
 if ag.KeySystem.SaveKey then
 handleSuccess(aA)
 else
+notifyAccepted()
 al:Close()()
 task.wait(0.4)
 ai(true)
 end
 else
-ag.WindUI:Notify{
-Title="Key System. Error",
-Content="Invalid key.",
-Icon="triangle-alert",
-}
+rejectKey("Invalid key.")
 end
 elseif not ag.KeySystem.API then
 local b=type(ag.KeySystem.Key)=="table"and table.find(ag.KeySystem.Key,aA)
@@ -3438,10 +3500,13 @@ if b then
 if ag.KeySystem.SaveKey then
 handleSuccess(aA)
 else
+notifyAccepted()
 al:Close()()
 task.wait(0.4)
 ai(true)
 end
+else
+rejectKey("Invalid key.")
 end
 else
 local b,d
@@ -3457,11 +3522,7 @@ end
 if b then
 handleSuccess(aA)
 else
-ag.WindUI:Notify{
-Title="Key System. Error",
-Content=d,
-Icon="triangle-alert",
-}
+rejectKey(d)
 end
 end
 end,"Primary",ax)
