@@ -336,6 +336,8 @@ local function main()
                         if best and os.clock() - (state.lastTypedAt or 0) > 6 then
                             state.lastTypedAt = os.clock()
                             typeWord(best)
+                            -- Let the next poll pick up the feedback from the guess just submitted.
+                            state.lastBoardSignature = nil
                         end
                     end
                 end
