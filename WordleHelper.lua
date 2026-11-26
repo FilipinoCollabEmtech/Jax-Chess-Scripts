@@ -15,6 +15,7 @@ state.green = state.green or ""
 state.yellow = state.yellow or ""
 state.gray = state.gray or ""
 state.guesses = state.guesses or ""
+state.autoSolve = state.autoSolve or false
 state.objects = state.objects or {}
 state.connections = state.connections or {}
 state.cache = state.cache or {}
@@ -32,6 +33,7 @@ local function loadSettings()
     for _, key in ipairs({ "source", "apiKey", "oanorKey", "green", "yellow", "gray", "guesses" }) do
         if type(data[key]) == "string" then state[key] = data[key] end
     end
+    if type(data.autoSolve) == "boolean" then state.autoSolve = data.autoSolve end
 end
 
 local function saveSettings()
@@ -45,6 +47,7 @@ local function saveSettings()
             yellow = state.yellow,
             gray = state.gray,
             guesses = state.guesses,
+            autoSolve = state.autoSolve,
         })
     end)
     if okJson and type(json) == "string" then
@@ -148,6 +151,63 @@ local function solve()
         return solveApiverve()
     end
     return solveApiverve()
+end
+
+local function dedupeLetters(list)
+    local seen, out = {}, {}
+    for _, letter in ipairs(list) do
+        if not seen[letter] then
+            seen[letter] = true
+            out[#out + 1] = letter
+        end
+    end
+    return table.concat(out)
+end
+
+local function readBoard()
+    local ok, clues = pcall(function()
+        local pg = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+        local hud = pg and pg:FindFirstChild("HUD")
+        local grid = hud and hud:FindFirstChild("Content")
+        grid = grid and grid:FindFirstChild("Game")
+        grid = grid and grid:FindFirstChild("Grid")
+        if not grid then return nil end
+
+        local pairs, greens, yellows, grays, signature = {}, {}, {}, {}, ""
+        for rowIndex = 1, 6 do
+            local row = grid:FindFirstChild("Row" .. rowIndex)
+            if row then
+                local word, pattern = "", ""
+                for keyIndex = 1, 5 do
+                    local key = row:FindFirstChild("Key" .. keyIndex)
+                    local content = key and key:FindFirstChild("Content")
+                    local keyCode = content and content:FindFirstChild("KeyCode")
+                    local letter = keyCode and tostring(keyCode.Text or "") or ""
+                    local tileState = content and content:GetAttribute("WordieTileState") or "Empty"
+                    local code = tileState == "Correct" and "g" or tileState == "Present" and "y" or tileState == "Absent" and "x" or ""
+                    word = word .. letter:upper()
+                    pattern = pattern .. code
+                    if code == "g" then greens[#greens + 1] = letter:upper() .. keyIndex end
+                    if code == "y" then yellows[#yellows + 1] = letter:upper() end
+                    if code == "x" then grays[#grays + 1] = letter:upper() end
+                end
+                signature = signature .. word .. pattern .. "|"
+                if #word == 5 and #pattern == 5 and pattern:find("[gyx]") then
+                    pairs[#pairs + 1] = word:lower() .. ":" .. pattern
+                end
+            end
+        end
+        if #pairs == 0 then return nil end
+        return {
+            green = table.concat(greens, ","),
+            yellow = dedupeLetters(yellows),
+            gray = dedupeLetters(grays),
+            guesses = table.concat(pairs, ","),
+            signature = signature,
+        }
+    end)
+    if ok then return clues end
+    return nil
 end
 
 local QUEUED_SOURCE = [[pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FilipinoCollabEmtech/Jax-Chess-Scripts/main/WordleHelper.lua"))() end)]]
@@ -259,34 +319,44 @@ local function main()
         end)
     end
 
+    local function showAnswer(answer, cached)
+        if not answer then
+            setResult("No result", "No matching words for those clues")
+            return
+        end
+        local list = {}
+        for i, word in ipairs(answer.candidates) do
+            if i > 12 then break end
+            list[#list + 1] = tostring(i) .. ". " .. tostring(word)
+        end
+        local header = string.format("Best: %s\nSource: %s\nRemaining: %s%s",
+            answer.suggestion, answer.source, tostring(answer.count),
+            cached and "\n(cached)" or "")
+        if answer.pattern and answer.pattern ~= "" then
+            header = header .. "\nPattern: " .. answer.pattern
+        end
+        setResult("Suggestion", header .. "\n\n" .. table.concat(list, "\n"))
+    end
+
+    local function runSolve()
+        state.green = greenInput.Value or state.green
+        state.yellow = yellowInput.Value or state.yellow
+        state.gray = grayInput.Value or state.gray
+        state.guesses = guessesInput.Value or state.guesses
+        saveSettings()
+        setResult("Suggestion", "Thinking...")
+        local answer, err, cached = solve()
+        if not answer then
+            setResult("No result", tostring(err))
+            return
+        end
+        showAnswer(answer, cached)
+    end
+
     Main:Button({
         Title = "Suggest",
         Desc = "Rank the next guesses from your constraints",
-        Callback = function()
-            state.green = greenInput.Value or state.green
-            state.yellow = yellowInput.Value or state.yellow
-            state.gray = grayInput.Value or state.gray
-            state.guesses = guessesInput.Value or state.guesses
-            saveSettings()
-            setResult("Suggestion", "Thinking...")
-            local answer, err, cached = solve()
-            if not answer then
-                setResult("No result", tostring(err))
-                return
-            end
-            local list = {}
-            for i, word in ipairs(answer.candidates) do
-                if i > 12 then break end
-                list[#list + 1] = tostring(i) .. ". " .. tostring(word)
-            end
-            local header = string.format("Best: %s\nSource: %s\nRemaining: %s%s",
-                answer.suggestion, answer.source, tostring(answer.count),
-                cached and "\n(cached)" or "")
-            if answer.pattern and answer.pattern ~= "" then
-                header = header .. "\nPattern: " .. answer.pattern
-            end
-            setResult("Suggestion", header .. "\n\n" .. table.concat(list, "\n"))
-        end,
+        Callback = runSolve,
     })
 
     Main:Button({
@@ -294,6 +364,40 @@ local function main()
         Callback = function()
             state.cache = {}
             setResult("Suggestion", "Cache cleared.")
+        end,
+    })
+
+    Main:Toggle({
+        Title = "Auto Solve",
+        Desc = "Read the Wordie board and solve when it changes",
+        Value = state.autoSolve,
+        Callback = function(on)
+            state.autoSolve = on
+            saveSettings()
+            state.autoToken = (state.autoToken or 0) + 1
+            if not on then return end
+            task.spawn(function()
+                local token = state.autoToken
+                while state.autoToken == token and state.autoSolve do
+                    task.wait(1)
+                    local clues = readBoard()
+                    if clues and clues.signature ~= state.lastBoardSignature then
+                        state.lastBoardSignature = clues.signature
+                        state.green = clues.green
+                        state.yellow = clues.yellow
+                        state.gray = clues.gray
+                        state.guesses = clues.guesses
+                        pcall(function()
+                            greenInput:Set(clues.green)
+                            yellowInput:Set(clues.yellow)
+                            grayInput:Set(clues.gray)
+                            guessesInput:Set(clues.guesses)
+                        end)
+                        saveSettings()
+                        runSolve()
+                    end
+                end
+            end)
         end,
     })
 
