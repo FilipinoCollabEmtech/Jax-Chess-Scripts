@@ -1,6 +1,5 @@
 --[[
-  WordleHelper - Wordle solver helper
-  Uses APIVerve Wordle Helper and oanor Wordle API (official 2,315 answer list).
+  WordleHelper - Wordie board solver (APIVerve Wordle Helper only)
 ]]
 local genv = typeof(getgenv) == "function" and getgenv() or _G
 local state = genv.WordleHelperState
@@ -8,17 +7,11 @@ if type(state) ~= "table" then
     state = {}
     genv.WordleHelperState = state
 end
-state.source = state.source or "apiverve"
 state.apiKey = state.apiKey or ""
-state.oanorKey = state.oanorKey or ""
-state.green = state.green or ""
-state.yellow = state.yellow or ""
-state.gray = state.gray or ""
-state.guesses = state.guesses or ""
 state.autoSolve = state.autoSolve or false
+state.cache = state.cache or {}
 state.objects = state.objects or {}
 state.connections = state.connections or {}
-state.cache = state.cache or {}
 
 local SETTINGS_PATH = "WordleHelper/settings.json"
 
@@ -30,9 +23,7 @@ local function loadSettings()
     if not okRead or type(content) ~= "string" then return end
     local okJson, data = pcall(function() return game:GetService("HttpService"):JSONDecode(content) end)
     if not okJson or type(data) ~= "table" then return end
-    for _, key in ipairs({ "source", "apiKey", "oanorKey", "green", "yellow", "gray", "guesses" }) do
-        if type(data[key]) == "string" then state[key] = data[key] end
-    end
+    if type(data.apiKey) == "string" then state.apiKey = data.apiKey end
     if type(data.autoSolve) == "boolean" then state.autoSolve = data.autoSolve end
 end
 
@@ -40,13 +31,7 @@ local function saveSettings()
     if typeof(writefile) ~= "function" then return end
     local okJson, json = pcall(function()
         return game:GetService("HttpService"):JSONEncode({
-            source = state.source,
             apiKey = state.apiKey,
-            oanorKey = state.oanorKey,
-            green = state.green,
-            yellow = state.yellow,
-            gray = state.gray,
-            guesses = state.guesses,
             autoSolve = state.autoSolve,
         })
     end)
@@ -57,8 +42,7 @@ end
 
 loadSettings()
 
-local APIVERVE_URL = "https://api.apiverve.com/v1/wordlehelper"
-local OANOR_URL = "https://api.oanor.com/wordle-api/v1/solve"
+local URL = "https://api.apiverve.com/v1/wordlehelper"
 
 local function urlEncode(s)
     return (tostring(s):gsub("[^%w%-_%.~]", function(c)
@@ -66,9 +50,14 @@ local function urlEncode(s)
     end))
 end
 
-local function requestJson(url, headers)
+local function solveapiverde(green, yellow, gray)
+    local key = tostring(state.apiKey or "")
+    local url = string.format("%s?green=%s&yellow=%s&gray=%s",
+        URL, urlEncode(green), urlEncode(yellow), urlEncode(gray))
+    local headers = {}
+    if key ~= "" then headers["x-api-key"] = key end
     local ok, response = pcall(function()
-        return request({ Url = url, Method = "GET", Headers = headers or {} })
+        return request({ Url = url, Method = "GET", Headers = headers })
     end)
     if not ok then return nil, "HTTP error: " .. tostring(response) end
     if type(response) == "string" then return nil, "HTTP error: " .. response end
@@ -78,131 +67,67 @@ local function requestJson(url, headers)
     end
     if type(body) ~= "string" or body == "" then return nil, "Empty response" end
     local okJson, data = pcall(function() return game:GetService("HttpService"):JSONDecode(body) end)
-    if not okJson or type(data) ~= "table" then return nil, "Invalid JSON response" end
-    if data.status == "error" or data.success == false then
-        return nil, tostring(data.error or data.message or "API error")
-    end
-    return data
-end
-
-local function solveApiverve()
-    local green = state.green or ""
-    local yellow = state.yellow or ""
-    local gray = state.gray or ""
-    local key = tostring(state.apiKey or "")
-    local url = string.format("%s?green=%s&yellow=%s&gray=%s",
-        APIVERVE_URL, urlEncode(green), urlEncode(yellow), urlEncode(gray))
-    local headers = {}
-    if key ~= "" then headers["x-api-key"] = key end
-    local cacheKey = "apiverve|" .. green .. "|" .. yellow .. "|" .. gray
-    if state.cache[cacheKey] then return state.cache[cacheKey], "cached" end
-    local data, err = requestJson(url, headers)
-    if not data then return nil, err end
+    if not okJson or type(data) ~= "table" then return nil, "Invalid JSON" end
+    if data.status == "error" then return nil, tostring(data.error or "API error") end
     local suggestions = data.data and data.data.suggestions or {}
     if type(suggestions) ~= "table" or #suggestions == 0 then
-        return nil, "No matching words for those clues"
+        return nil, "No matching words"
     end
-    local result = {
-        source = "APIVerve",
-        suggestion = tostring(suggestions[1]),
-        candidates = suggestions,
+    return {
+        words = suggestions,
+        best = tostring(suggestions[1]),
         count = data.data.matchCount or #suggestions,
         pattern = data.data.pattern or "",
     }
-    state.cache[cacheKey] = result
-    return result, nil
 end
 
-local function solveOanor()
-    local guesses = state.guesses or ""
-    if guesses == "" then
-        return nil, "Enter guess:pattern pairs first (e.g. crane:xxxgx,slate:ggxxx)"
-    end
-    local key = tostring(state.oanorKey or "")
-    local url = string.format("%s?guesses=%s&limit=20", OANOR_URL, urlEncode(guesses))
-    local headers = {}
-    if key ~= "" then headers["x-oanor-key"] = key end
-    local cacheKey = "oanor|" .. guesses
-    if state.cache[cacheKey] then return state.cache[cacheKey], "cached" end
-    local data, err = requestJson(url, headers)
-    if not data then return nil, err end
-    local payload = data.data or {}
-    local candidates = payload.candidates or {}
-    if type(candidates) ~= "table" or #candidates == 0 then
-        return nil, "No matching words for those clues"
-    end
-    local result = {
-        source = "oanor",
-        suggestion = tostring(payload.suggestion or candidates[1]),
-        candidates = candidates,
-        count = payload.remaining or #candidates,
-        pattern = "",
-    }
-    state.cache[cacheKey] = result
-    return result, nil
-end
-
-local function solve()
-    if state.source == "oanor" then
-        return solveOanor()
-    elseif state.source == "auto" then
-        local result, err = solveOanor()
-        if result then return result, err end
-        return solveApiverve()
-    end
-    return solveApiverve()
-end
-
-local function dedupeLetters(list)
+local function dedupe(list)
     local seen, out = {}, {}
-    for _, letter in ipairs(list) do
-        if not seen[letter] then
-            seen[letter] = true
-            out[#out + 1] = letter
+    for _, value in ipairs(list) do
+        if not seen[value] then
+            seen[value] = true
+            out[#out + 1] = value
         end
     end
-    return table.concat(out)
+    return table.concat(out, ",")
 end
 
 local function readBoard()
     local ok, clues = pcall(function()
         local pg = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
         local hud = pg and pg:FindFirstChild("HUD")
-        local grid = hud and hud:FindFirstChild("Content")
-        grid = grid and grid:FindFirstChild("Game")
-        grid = grid and grid:FindFirstChild("Grid")
+        local gameFrame = hud and hud:FindFirstChild("Content")
+        gameFrame = gameFrame and gameFrame:FindFirstChild("Game")
+        local grid = gameFrame and gameFrame:FindFirstChild("Grid")
         if not grid then return nil end
 
-        local pairs, greens, yellows, grays, signature = {}, {}, {}, {}, ""
+        local greens, yellows, grays, signature = {}, {}, {}, ""
         for rowIndex = 1, 6 do
             local row = grid:FindFirstChild("Row" .. rowIndex)
             if row then
-                local word, pattern = "", ""
                 for keyIndex = 1, 5 do
                     local key = row:FindFirstChild("Key" .. keyIndex)
                     local content = key and key:FindFirstChild("Content")
                     local keyCode = content and content:FindFirstChild("KeyCode")
-                    local letter = keyCode and tostring(keyCode.Text or "") or ""
-                    local tileState = content and content:GetAttribute("WordieTileState") or "Empty"
-                    local code = tileState == "Correct" and "g" or tileState == "Present" and "y" or tileState == "Absent" and "x" or ""
-                    word = word .. letter:upper()
-                    pattern = pattern .. code
-                    if code == "g" then greens[#greens + 1] = letter:upper() .. keyIndex end
-                    if code == "y" then yellows[#yellows + 1] = letter:upper() end
-                    if code == "x" then grays[#grays + 1] = letter:upper() end
-                end
-                signature = signature .. word .. pattern .. "|"
-                if #word == 5 and #pattern == 5 and pattern:find("[gyx]") then
-                    pairs[#pairs + 1] = word:lower() .. ":" .. pattern
+                    local letter = keyCode and tostring(keyCode.Text or ""):upper() or ""
+                    local tileState = content and tostring(content:GetAttribute("WordieTileState") or "") or ""
+                    if tileState == "Correct" and letter ~= "" then
+                        greens[#greens + 1] = letter .. keyIndex
+                    elseif tileState == "Present" and letter ~= "" then
+                        yellows[#yellows + 1] = letter
+                    elseif tileState == "Absent" and letter ~= "" then
+                        grays[#grays + 1] = letter
+                    end
+                    signature = signature .. letter .. tileState:sub(1, 1) .. "|"
                 end
             end
         end
-        if #pairs == 0 then return nil end
+
+        if #greens == 0 and #yellows == 0 and #grays == 0 then return nil end
         return {
-            green = table.concat(greens, ","),
-            yellow = dedupeLetters(yellows),
-            gray = dedupeLetters(grays),
-            guesses = table.concat(pairs, ","),
+            green = dedupe(greens),
+            yellow = dedupe(yellows),
+            gray = dedupe(grays),
             signature = signature,
         }
     end)
@@ -217,7 +142,6 @@ local function queueReload()
     local queue = typeof(queueonteleport) == "function" and queueonteleport
         or typeof(queue_on_teleport) == "function" and queue_on_teleport
         or typeof(queueteleport) == "function" and queueteleport
-        or typeof(queue_on_tp) == "function" and queue_on_tp
     local ok
     if queue then ok = pcall(queue, QUEUED_SOURCE) end
     if not ok and typeof(fluxus) == "table" and typeof(fluxus.queue_on_teleport) == "function" then
@@ -226,14 +150,15 @@ local function queueReload()
     if ok then
         state.queuedFor = game.PlaceId
         state.queueConsumed = false
-    else
-        warn("[WordleHelper] queueonteleport failed")
     end
 end
 
 local function main()
     state.uiToken = (state.uiToken or 0) + 1
     local myToken = state.uiToken
+    state.autoToken = (state.autoToken or 0) + 1
+    state.lastBoardSignature = nil
+
     for _, connection in ipairs(state.connections) do
         pcall(function() connection:Disconnect() end)
     end
@@ -242,6 +167,32 @@ local function main()
         pcall(function() object:Destroy() end)
     end
     state.objects = {}
+
+    local hosts = {}
+    if typeof(gethui) == "function" then
+        local ok, ui = pcall(gethui)
+        if ok and ui then hosts[#hosts + 1] = ui end
+    end
+    hosts[#hosts + 1] = game:GetService("CoreGui")
+    local playerGui = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if playerGui then hosts[#hosts + 1] = playerGui end
+    for _, host in ipairs(hosts) do
+        for _, child in ipairs(host:GetChildren()) do
+            local mine = child.Name == "WordleHelper"
+            if not mine then
+                pcall(function()
+                    for _, label in ipairs(child:GetDescendants()) do
+                        local text = label:IsA("TextLabel") and tostring(label.Text or "") or ""
+                        if text == "Wordle Helper" or text == "APIVerve key" then
+                            mine = true
+                            break
+                        end
+                    end
+                end)
+            end
+            if mine then pcall(function() child:Destroy() end) end
+        end
+    end
 
     local WindUI
     for attempt = 1, 3 do
@@ -273,7 +224,7 @@ local function main()
         Icon = "grid",
         Author = "OpenCode",
         Folder = "WordleHelper",
-        Size = UDim2.fromOffset(470, 460),
+        Size = UDim2.fromOffset(460, 360),
         Theme = "Dark",
         ToggleKey = Enum.KeyCode.RightControl,
     })
@@ -284,34 +235,7 @@ local function main()
     end)
 
     local Main = Window:Tab({ Title = "Main", Icon = "home" })
-    Main:Section({ Title = "Clues", Opened = true })
-
-    local greenInput = Main:Input({
-        Title = "Green (A1,E5)",
-        Placeholder = "A1,E5",
-        Value = state.green,
-        Callback = function(text) state.green = text; saveSettings() end,
-    })
-    local yellowInput = Main:Input({
-        Title = "Yellow letters",
-        Placeholder = "R",
-        Value = state.yellow,
-        Callback = function(text) state.yellow = text; saveSettings() end,
-    })
-    local grayInput = Main:Input({
-        Title = "Gray letters",
-        Placeholder = "STLN",
-        Value = state.gray,
-        Callback = function(text) state.gray = text; saveSettings() end,
-    })
-    local guessesInput = Main:Input({
-        Title = "oanor guesses",
-        Placeholder = "crane:xxxgx,slate:ggxxx",
-        Value = state.guesses,
-        Callback = function(text) state.guesses = text; saveSettings() end,
-    })
-
-    local result = Main:Paragraph({ Title = "Suggestion", Desc = "Enter your clues and press Suggest." })
+    local result = Main:Paragraph({ Title = "Suggestion", Desc = "Turn on Auto Solve to read the board." })
     local function setResult(title, desc)
         pcall(function()
             result:SetTitle(title)
@@ -319,57 +243,37 @@ local function main()
         end)
     end
 
-    local function showAnswer(answer, cached)
-        if not answer then
-            setResult("No result", "No matching words for those clues")
-            return
-        end
-        local list = {}
-        for i, word in ipairs(answer.candidates) do
-            if i > 12 then break end
-            list[#list + 1] = tostring(i) .. ". " .. tostring(word)
-        end
-        local header = string.format("Best: %s\nSource: %s\nRemaining: %s%s",
-            answer.suggestion, answer.source, tostring(answer.count),
-            cached and "\n(cached)" or "")
-        if answer.pattern and answer.pattern ~= "" then
-            header = header .. "\nPattern: " .. answer.pattern
-        end
-        setResult("Suggestion", header .. "\n\n" .. table.concat(list, "\n"))
-    end
-
-    local function runSolve()
-        state.green = greenInput.Value or state.green
-        state.yellow = yellowInput.Value or state.yellow
-        state.gray = grayInput.Value or state.gray
-        state.guesses = guessesInput.Value or state.guesses
-        saveSettings()
+    local function runSolve(clues)
         setResult("Suggestion", "Thinking...")
-        local answer, err, cached = solve()
+        local answer, err = solveapiverde(clues.green, clues.yellow, clues.gray)
         if not answer then
             setResult("No result", tostring(err))
             return
         end
-        showAnswer(answer, cached)
+        local words = {}
+        for i, word in ipairs(answer.words) do
+            if i > 12 then break end
+            words[#words + 1] = tostring(i) .. ". " .. tostring(word)
+        end
+        setResult("Suggestion", string.format("Best: %s\nMatches: %s\nPattern: %s\nGreen: %s | Yellow: %s | Gray: %s\n\n%s",
+            answer.best, tostring(answer.count), answer.pattern,
+            clues.green, clues.yellow, clues.gray, table.concat(words, "\n")))
     end
 
-    Main:Button({
-        Title = "Suggest",
-        Desc = "Rank the next guesses from your constraints",
-        Callback = runSolve,
-    })
-
-    Main:Button({
-        Title = "Clear cache",
-        Callback = function()
-            state.cache = {}
-            setResult("Suggestion", "Cache cleared.")
+    Main:Input({
+        Title = "APIVerve key",
+        Placeholder = "apv_...",
+        Value = state.apiKey,
+        Callback = function(text)
+            state.apiKey = text
+            saveSettings()
         end,
     })
 
-    Main:Toggle({
+    local autoToggle
+    autoToggle = Main:Toggle({
         Title = "Auto Solve",
-        Desc = "Read the Wordie board and solve when it changes",
+        Desc = "Read the Wordie board and suggest the next word",
         Value = state.autoSolve,
         Callback = function(on)
             state.autoSolve = on
@@ -383,53 +287,15 @@ local function main()
                     local clues = readBoard()
                     if clues and clues.signature ~= state.lastBoardSignature then
                         state.lastBoardSignature = clues.signature
-                        state.green = clues.green
-                        state.yellow = clues.yellow
-                        state.gray = clues.gray
-                        state.guesses = clues.guesses
-                        pcall(function()
-                            greenInput:Set(clues.green)
-                            yellowInput:Set(clues.yellow)
-                            grayInput:Set(clues.gray)
-                            guessesInput:Set(clues.guesses)
-                        end)
-                        saveSettings()
-                        runSolve()
+                        runSolve(clues)
                     end
                 end
             end)
         end,
     })
-
-    Main:Section({ Title = "Settings", Opened = false })
-    Main:Dropdown({
-        Title = "Source",
-        Values = { "apiverve", "oanor", "auto" },
-        Value = state.source,
-        Callback = function(value)
-            state.source = value
-            saveSettings()
-        end,
-    })
-    local apiKeyInput = Main:Input({
-        Title = "APIVerve key",
-        Value = state.apiKey,
-        Callback = function(text) state.apiKey = text; saveSettings() end,
-    })
-    local oanorKeyInput = Main:Input({
-        Title = "oanor key",
-        Value = state.oanorKey,
-        Callback = function(text) state.oanorKey = text; saveSettings() end,
-    })
-    Main:Button({
-        Title = "Save keys",
-        Callback = function()
-            state.apiKey = apiKeyInput.Value or state.apiKey
-            state.oanorKey = oanorKeyInput.Value or state.oanorKey
-            saveSettings()
-            setResult("Suggestion", "Settings saved.")
-        end,
-    })
+    if state.autoSolve then
+        pcall(function() autoToggle.Callback(true) end)
+    end
 end
 
 main()
