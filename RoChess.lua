@@ -27,7 +27,7 @@ state.modeAutoPlay = state.modeAutoPlay or { Bot = true, Online = true }
 state.modeAutoReplay = state.modeAutoReplay or { Bot = false, Online = false }
 state.puzzleAutoNext = state.puzzleAutoNext or false
 state.key = state.key or ""
-state.keyUrl = state.keyUrl or ""
+state.keyUrl = state.keyUrl or "https://script.google.com/macros/s/AKfycbwVZ90la5-QzCgbtA1uqpOBgMdz0c72Y0qjq-4i66tTNURFk7Ae7rTi025IJ4VXnGMS/exec"
 state.keyAccepted = state.keyAccepted or false
 
 -- First two moves played locally, no API round trip.
