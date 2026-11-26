@@ -12275,6 +12275,14 @@ function ao.OnChange(ap,aq)
 ao.OnChangeFunc=aq
 end
 
+local function tabTextLabel(tab)
+local main=tab and tab.UIElements and tab.UIElements.Main
+if typeof(main)~="Instance"then return nil end
+local frame=main:FindFirstChild("Frame")
+if typeof(frame)~="Instance"then return nil end
+return frame:FindFirstChild("TextLabel")
+end
+
 function ao.SelectTab(ap,aq)
 if not ao.Tabs[aq].Locked then
 ao.SelectedTab=aq
@@ -12284,14 +12292,20 @@ if not as.Locked then
 ak.SetThemeTag(as.UIElements.Main,{
 ImageTransparency="TabBorderTransparency",
 },0.15)
-if as.Border then
-ak.SetThemeTag(as.UIElements.Main.Outline,{
+if as.Border and typeof(as.UIElements.Main)=="Instance"then
+local outline=as.UIElements.Main:FindFirstChild("Outline")
+if outline then
+ak.SetThemeTag(outline,{
 ImageTransparency="TabBorderTransparency",
 },0.15)
 end
-ak.SetThemeTag(as.UIElements.Main.Frame.TextLabel,{
+end
+local label=tabTextLabel(as)
+if label then
+ak.SetThemeTag(label,{
 TextTransparency="TabTextTransparency",
 },0.15)
+end
 if as.UIElements.Icon and not as.IconColor then
 ak.SetThemeTag(as.UIElements.Icon.ImageLabel,{
 ImageTransparency="TabIconTransparency",
@@ -12304,14 +12318,21 @@ ak.SetThemeTag(ao.Tabs[aq].UIElements.Main,{
 ImageColor3="TabBackgroundActive",
 ImageTransparency="TabBackgroundActiveTransparency",
 },0.15)
-if ao.Tabs[aq].Border then
-ak.SetThemeTag(ao.Tabs[aq].UIElements.Main.Outline,{
+local activeTab=ao.Tabs[aq]
+if activeTab.Border and typeof(activeTab.UIElements.Main)=="Instance"then
+local outline=activeTab.UIElements.Main:FindFirstChild("Outline")
+if outline then
+ak.SetThemeTag(outline,{
 ImageTransparency="TabBorderTransparencyActive",
 },0.15)
 end
-ak.SetThemeTag(ao.Tabs[aq].UIElements.Main.Frame.TextLabel,{
+end
+local activeLabel=tabTextLabel(activeTab)
+if activeLabel then
+ak.SetThemeTag(activeLabel,{
 TextTransparency="TabTextTransparencyActive",
 },0.15)
+end
 if ao.Tabs[aq].UIElements.Icon and not ao.Tabs[aq].IconColor then
 ak.SetThemeTag(ao.Tabs[aq].UIElements.Icon.ImageLabel,{
 ImageTransparency="TabIconTransparencyActive",
